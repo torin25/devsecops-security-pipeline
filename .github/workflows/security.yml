@@ -38,11 +38,12 @@ jobs:
     # Trivy - Install
     - name: Install Trivy
       run: |
-        sudo apt-get update -y
-        sudo apt-get install -y wget tar
+        sudo apt-get update -y || true
+        sudo apt-get install -y wget tar || true
         wget -q https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.tar.gz
         tar zxvf trivy_Linux-64bit.tar.gz
         sudo mv trivy /usr/local/bin/
+
 
     # Trivy - Filesystem Scan
     - name: Run Trivy FS Scan
