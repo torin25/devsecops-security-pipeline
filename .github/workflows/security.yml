@@ -31,8 +31,7 @@ jobs:
     #Gitleaks - Secret Scanning
     - name: Run Gitleaks Secret Scan
       uses: zricethezav/gitleaks-action@v2
-      with:
-        args: "--path=. --report-format=json --report-path=gitleaks-report.json"
+      
 
     #Trivy - Vulnerability Scanner
     - name: Install Trivy
