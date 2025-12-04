@@ -1,63 +1,136 @@
-name: Security CI Pipeline
+# name: Security CI Pipeline
 
-on: [push]
+# on: [push]
+
+# jobs:
+#   security-check:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v3
+#       with:
+#         fetch-depth: 0
+
+#     - name: Set up Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: "3.10"
+
+#     - name: Install dependencies
+#       run: |
+#         pip install --upgrade pip
+#         pip install bandit
+#         pip install -r requirements.txt || true
+
+#     # Bandit - Static Code Analysis
+#     - name: Run Bandit Security Scan
+#       continue-on-error: true
+#       run: bandit -r . -f txt -o bandit_report.txt
+
+#     # Gitleaks - Secret Scanning
+#     - name: Run Gitleaks Secret Scan
+#       continue-on-error: true
+#       uses: zricethezav/gitleaks-action@v2
+#       with:
+#         args: detect -v --report-format=json --report-path=gitleaks-report.json
+
+
+#     - name: Install Trivy
+#       run: >
+#         set +e &&
+#         sudo apt-get update -y &&
+#         sudo apt-get install -y wget tar &&
+#         wget -q https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.tar.gz &&
+#         tar zxvf trivy_Linux-64bit.tar.gz &&
+#         sudo mv trivy /usr/local/bin/
+
+
+
+#     # Trivy - Filesystem Scan
+#     - name: Run Trivy FS Scan
+#       continue-on-error: true
+#       run: trivy fs . --format json --output trivy-report.json
+
+#     # Upload Reports
+#     - name: Upload Security Reports
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: security-reports
+#         path: |
+#           bandit_report.txt
+#           gitleaks-report.json
+#           trivy-report.json
+
+name: DevSecOps Security Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  security-check:
+  security-scan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # For SARIF upload to Security tab
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # For Gitleaks git history scan
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install bandit
-        pip install -r requirements.txt || true
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install bandit
+          pip install -r requirements.txt || true
 
-    # Bandit - Static Code Analysis
-    - name: Run Bandit Security Scan
-      continue-on-error: true
-      run: bandit -r . -f txt -o bandit_report.txt
+      # Bandit - Static Code Analysis
+      - name: Run Bandit Security Scan
+        continue-on-error: true
+        run: |
+          bandit -r . -f txt -o bandit_report.txt
+          bandit -r . -f json -o bandit_report.json
 
-    # Gitleaks - Secret Scanning
-    - name: Run Gitleaks Secret Scan
-      continue-on-error: true
-      uses: zricethezav/gitleaks-action@v2
-      with:
-        args: detect -v --report-format=json --report-path=gitleaks-report.json
+      # Gitleaks - Secret Scanning (fixed action + args)
+      - name: Run Gitleaks Secret Scan
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2  # Official, maintained action
+        with:
+          args: detect --verbose --report-format json --report-path gitleaks-report.json
 
+      # Trivy - No manual install! Official action handles everything
+      - name: Run Trivy FS Scan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          format: 'sarif'  # For GitHub Security tab integration
+          output: 'trivy-report.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          scanners: 'vuln,secret,misconfig'
 
-    - name: Install Trivy
-      run: >
-        set +e &&
-        sudo apt-get update -y &&
-        sudo apt-get install -y wget tar &&
-        wget -q https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.tar.gz &&
-        tar zxvf trivy_Linux-64bit.tar.gz &&
-        sudo mv trivy /usr/local/bin/
+      # Upload SARIF to GitHub Security tab (shows findings visually)
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-report.sarif
 
-
-
-    # Trivy - Filesystem Scan
-    - name: Run Trivy FS Scan
-      continue-on-error: true
-      run: trivy fs . --format json --output trivy-report.json
-
-    # Upload Reports
-    - name: Upload Security Reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-reports
-        path: |
-          bandit_report.txt
-          gitleaks-report.json
-          trivy-report.json
+      # Upload Reports
+      - name: Upload Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit_report.*
+            gitleaks-report.json
+            trivy-report.sarif
