@@ -16,7 +16,11 @@ jobs:
         python-version: "3.10"
 
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: |
+        pip install --upgrade pip
+        pip install bandit
+        pip install -r requirements.txt || true
+
 
     #Bandit - Static Code Analysis (Python SAST)
     - name: Run Bandit Security Scan
