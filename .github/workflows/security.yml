@@ -35,6 +35,7 @@ jobs:
       with:
         args: detect -v --report-format=json --report-path=gitleaks-report.json
 
+
     - name: Install Trivy
       run: >
         set +e &&
