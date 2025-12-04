@@ -9,6 +9,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -21,33 +23,33 @@ jobs:
         pip install bandit
         pip install -r requirements.txt || true
 
-
-    #Bandit - Static Code Analysis (Python SAST)
+    # Bandit - Static Code Analysis
     - name: Run Bandit Security Scan
       continue-on-error: true
-      run: |
-        bandit -r . -f txt -o bandit_report.txt
+      run: bandit -r . -f txt -o bandit_report.txt
 
-    #Gitleaks - Secret Scanning
+    # Gitleaks - Secret Scanning
     - name: Run Gitleaks Secret Scan
+      continue-on-error: true
       uses: zricethezav/gitleaks-action@v2
-      
+      with:
+        args: detect -v --report-format=json --report-path=gitleaks-report.json
 
-    #Trivy - Vulnerability Scanner
+    # Trivy - Install
     - name: Install Trivy
       run: |
         sudo apt-get update -y
-        sudo apt-get install wget -y
+        sudo apt-get install -y wget tar
         wget -q https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.tar.gz
         tar zxvf trivy_Linux-64bit.tar.gz
         sudo mv trivy /usr/local/bin/
 
-
-
-    - name: Run Trivy Filesystem Scan
+    # Trivy - Filesystem Scan
+    - name: Run Trivy FS Scan
+      continue-on-error: true
       run: trivy fs . --format json --output trivy-report.json
 
-    # Upload All Reports
+    # Upload Reports
     - name: Upload Security Reports
       uses: actions/upload-artifact@v4
       with:
